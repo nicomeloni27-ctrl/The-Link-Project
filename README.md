@@ -3,18 +3,18 @@
 Free study-hub website (HTML/CSS/JavaScript) with an optional Supabase backend.
 
 ## Current features
-- Six default class cards, including AP Macroeconomics.
+- New students start with an empty dashboard; existing saved user classes are preserved.
 - Custom classes and units.
-- Device-only file uploads (max 3 MB per file).
-- Google OAuth sign-in wired through Supabase (requires provider configuration).
-- Per-student class/unit cloud syncing when the SQL setup has been run.
+- Private Supabase document storage for signed-in users; guest uploads are device-only (max 3 MB per file).
+- Google sign-in via Supabase Auth.
+- Per-student class/unit cloud syncing, unit-level file tags, and a draft authenticated ChatGPT MCP integration.
 - Responsive connected-dot background.
 
 ## Set up Supabase class syncing
 1. Go to https://supabase.com/dashboard/project/kkjlfvkbtcjkgourkowa/sql/new
 2. Open `database.sql` in this repository and paste it into the SQL Editor.
 3. Review and run it. It creates `public.study_hubs` and row-level security policies, so authenticated users can only access their own record.
-4. Class names and units sync after sign-in. Uploaded documents currently remain only in the originating browser; they are NOT uploaded to Supabase.
+4. Class names and units sync after sign-in. Signed-in document uploads are stored in the private Supabase bucket, while guest uploads remain in the browser.
 
 ## Configure Google sign-in
 1. In Supabase Dashboard open **Authentication → URL Configuration**.
@@ -32,8 +32,8 @@ Free study-hub website (HTML/CSS/JavaScript) with an optional Supabase backend.
 - All remote class data lives in a per-user row with row-level security, configured by `database.sql`.
 - The original ChatGPT Work website and its materials were not imported.
 - First sign-in asks before importing shared guest classes. Account caches remain separate. Existing cloud classes load before editing is enabled; unsynced local changes can be recovered explicitly.
-- Class/unit changes are synced; file uploads are **local only**. Local browser storage is limited, and files can be lost if browser data is cleared.
-- The app does not request Google Drive, Classroom, Gmail, or ChatGPT account access.
+- Class/unit changes are synced. Signed-in uploads use private cloud storage; guest uploads remain device-only and may be lost if browser data is cleared.
+- The ChatGPT integration uses OAuth approval to let ChatGPT work with a student's Link account. It does not access Google Drive, Classroom, or Gmail.
 
 
 ## Production and verification
@@ -49,3 +49,7 @@ Free study-hub website (HTML/CSS/JavaScript) with an optional Supabase backend.
 
 Run regression checks with `node --test tests/auth.test.cjs`.
 The tests use a simulated backend; they do not replace a real Google sign-in and two-device acceptance test.
+
+## ChatGPT integration (not yet generally enabled)
+
+See [CHATGPT_SETUP.md](./CHATGPT_SETUP.md) for the current implementation, setup steps, security acceptance checklist, and remaining manual Supabase OAuth / ChatGPT registration requirements. The MCP endpoint is on a draft pull request until two real student-account OAuth tests succeed. Mock tests alone are not sufficient for production approval.

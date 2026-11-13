@@ -3,10 +3,17 @@ const cloudBox=document.createElement("article");cloudBox.className="panel";
 const cloudHeading=document.createElement("h2");cloudHeading.textContent="Private cloud documents";
 const cloudStatus=document.createElement("p");cloudStatus.className="note";
 const cloudList=document.createElement("div");
+const cloudActions=document.createElement("div");cloudActions.className="study-actions";
+const cloudSelectAll=document.createElement("button");cloudSelectAll.textContent="Select all";cloudSelectAll.className="link";
+const cloudCreate=document.createElement("button");cloudCreate.textContent="Create Review Materials";
+const cloudHelp=document.createElement("p");cloudHelp.className="note";cloudHelp.textContent="Select the uploaded resources you want to study, then create a review sheet and practice test. Existing uploads work too.";
+cloudActions.append(cloudSelectAll,cloudCreate);
+cloudSelectAll.onclick=()=>{const choices=[...cloudList.querySelectorAll("input[type=checkbox]")];const choose=!choices.every(x=>x.checked);choices.forEach(x=>x.checked=choose)};
+cloudCreate.onclick=()=>{const chosen=[...cloudList.querySelectorAll("input[type=checkbox]:checked")].map(x=>x.value);if(!chosen.length){cloudStatus.textContent="Select one or more documents first.";return}window.linkGenerateFromCloud?.(chosen,active)};
 const cloudUnitLabel=document.createElement("label");cloudUnitLabel.textContent="File uploads under unit: ";
 const cloudUnitSelect=document.createElement("select");cloudUnitSelect.setAttribute("aria-label","Choose upload unit");
 cloudUnitLabel.append(cloudUnitSelect);
-window.linkUploadUnitSelect=cloudUnitSelect;cloudBox.append(cloudHeading,cloudUnitLabel,cloudStatus,cloudList);
+window.linkUploadUnitSelect=cloudUnitSelect;cloudBox.append(cloudHeading,cloudUnitLabel,cloudHelp,cloudActions,cloudStatus,cloudList);
 document.querySelector("#course .columns").append(cloudBox);
 let cloudEpoch=0;
 window.refreshCloudDocs=async function(){
@@ -18,6 +25,7 @@ window.refreshCloudDocs=async function(){
  for(const unit of course?.units||[]){const option=document.createElement("option");option.value=unit;option.textContent=unit;cloudUnitSelect.append(option)}
  if(course?.units?.includes(previousUploadUnit))cloudUnitSelect.value=previousUploadUnit;
  else if(course?.units?.includes(window.linkPreferredUploadUnit))cloudUnitSelect.value=window.linkPreferredUploadUnit;
+ else if(window.linkPreferredUploadUnit==="General Materials")cloudUnitSelect.value="";
  if(!classId)return;
  if(!uid||!client){cloudStatus.textContent="Sign in to sync documents across devices.";return}
  cloudStatus.textContent="Loading documents…";
@@ -27,11 +35,13 @@ window.refreshCloudDocs=async function(){
  cloudStatus.textContent=rows.length?rows.length+" saved document(s)":"No cloud documents yet.";
  for(const file of rows){
   const line=document.createElement("div");line.className="item";
+  const check=document.createElement("input");check.type="checkbox";check.value=file.id;check.setAttribute("aria-label","Use "+file.name+" in review materials");
+  const fileGroup=document.createElement("label");fileGroup.className="study-cloud-item";fileGroup.append(check);
   const view=document.createElement("button");view.className="link";view.textContent=file.unit_title?file.name+" · "+file.unit_title:file.name;
   view.onclick=async()=>{const {data,error}=await client.storage.from("study-documents").createSignedUrl(file.storage_path,60);if(error){alert("Could not open document.");return}window.open(data.signedUrl,"_blank","noopener,noreferrer")};
   const del=document.createElement("button");del.textContent="×";del.className="remove";del.setAttribute("aria-label","Delete document");
   del.onclick=async()=>{if(!confirm("Delete this document?"))return;const {error}=await client.storage.from("study-documents").remove([file.storage_path]);if(error){alert("Delete failed.");return}await client.from("study_documents").delete().eq("id",file.id).eq("user_id",uid);window.refreshCloudDocs()};
-  line.append(view,del);cloudList.append(line);
+  fileGroup.append(view);line.append(fileGroup,del);cloudList.append(line);
  }
 };
 window.linkCloudUpload=async function(files,classId){

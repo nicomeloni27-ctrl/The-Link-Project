@@ -115,8 +115,11 @@ export default async function handler(req,res){
  if(!token)return response(res,401,{error:'unauthorized'},{'Content-Type':'application/json','WWW-Authenticate':'Bearer resource_metadata="'+ORIGIN+'/.well-known/oauth-protected-resource"'});
  const name=body.params?.name;
  if(!TOOLS.some(t=>t.name===name))return error(res,body.id,-32602,'Unknown tool');
+ let uid;try{uid=await owner(token)}catch{
+  return response(res,401,{error:'invalid_token'},{'Content-Type':'application/json','WWW-Authenticate':'Bearer error="invalid_token", resource_metadata="'+ORIGIN+'/.well-known/oauth-protected-resource"'});
+ }
  try{
-  const uid=await owner(token),result=await execute(name,body.params?.arguments||{},token,uid);
+  const result=await execute(name,body.params?.arguments||{},token,uid);
   return rpc(res,body.id,{content:[{type:'text',text:JSON.stringify(result)}]});
  }catch(e){return rpc(res,body.id,{isError:true,content:[{type:'text',text:e.message||'Operation failed'}]})}
 }

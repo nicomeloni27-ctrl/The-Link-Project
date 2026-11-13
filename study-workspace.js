@@ -18,7 +18,7 @@ const setList=S("div");const display=S("div");
 studyPanel.append(heading,unitSelect,autoLabel,note,sourceTitle,sourceList,actions,progressArea,status,setList,display);
 function key(){return "link-ai-auto-"+(window.linkDocumentsUser?.id||"guest")}
 auto.onchange=()=>{localStorage.setItem(key(),auto.checked?"true":"false")};
-unitSelect.onchange=()=>{studyState.unit=unitSelect.value;loadWorkspace()};
+unitSelect.onchange=()=>{studyState.unit=unitSelect.value;window.linkPreferredUploadUnit=studyState.unit;if(window.linkUploadUnitSelect)window.linkUploadUnitSelect.value=studyState.unit;loadWorkspace()};
 refreshBtn.onclick=()=>loadWorkspace();
 generateBtn.onclick=()=>runGeneration();
 function setStatus(s){status.textContent=s}
@@ -35,7 +35,8 @@ function checkboxDocs(){
 }
 async function loadWorkspace(){
  const epoch=++studyState.epoch,classId=active,unit=studyState.unit;
- studyState.classId=classId;sourceList.replaceChildren();setList.replaceChildren();display.replaceChildren();
+ studyState.classId=classId;studyState.docs=[];studyState.sets=[];studyState.answers=[];studyState.current=null;sourceList.replaceChildren();setList.replaceChildren();display.replaceChildren();
+ const priorStats=studyPanel.querySelector(".study-stats");if(priorStats)priorStats.remove();
  if(!classId)return;
  const course=data.find(c=>c.id===classId);
  unitSelect.replaceChildren();
@@ -44,6 +45,8 @@ async function loadWorkspace(){
  for(const name of units)unitSelect.append(new Option(name,name));
  if(!units.includes(unit))studyState.unit=units[0];
  unitSelect.value=studyState.unit;
+ window.linkPreferredUploadUnit=studyState.unit;
+ if(window.linkUploadUnitSelect&&[...window.linkUploadUnitSelect.options].some(x=>x.value===studyState.unit))window.linkUploadUnitSelect.value=studyState.unit;
  auto.checked=localStorage.getItem(key())==="true";
  if(!window.linkDocumentsUser||!window.linkDocumentsClient){setStatus("Sign in to use AI study sets and save quiz progress.");return}
  try{

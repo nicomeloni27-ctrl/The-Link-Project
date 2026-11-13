@@ -38,3 +38,16 @@ create policy "Students insert own answers" on public.study_answers for insert t
    select 1 from public.study_sets s where s.id=set_id and s.user_id=(select auth.uid())
  ));
 -- No update or delete to preserve an append-only progress record.
+
+-- Track requests before invoking the paid AI endpoint, including failures, to prevent free retries from bypassing quotas.
+create table if not exists public.study_generation_requests (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+create index if not exists study_generation_requests_user_time_idx on public.study_generation_requests(user_id,created_at desc);
+alter table public.study_generation_requests enable row level security;
+revoke all on public.study_generation_requests from anon;
+grant select,insert on public.study_generation_requests to authenticated;
+create policy "Students see own generation usage" on public.study_generation_requests for select to authenticated using ((select auth.uid())=user_id);
+create policy "Students record own generation requests" on public.study_generation_requests for insert to authenticated with check ((select auth.uid())=user_id);

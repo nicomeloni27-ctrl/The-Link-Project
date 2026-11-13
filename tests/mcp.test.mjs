@@ -79,7 +79,9 @@ test('ChatGPT saves a structured study set only within the signed-in student cla
   assert.equal(missing.isError,true);
   assert.match(missing.content[0].text,/Unit not found/);
   const createdUnit=await run('student-a','create_unit',{class_id:'math',title:'Unit 3'});
-  assert.equal(createdUnit.isError,undefined);
+  assert.equal(createdUnit.isError,undefined,JSON.stringify(createdUnit));
+  const listed=await run('student-a','list_classes',{});
+  assert.ok(JSON.parse(listed.content[0].text).find(c=>c.id==='math')?.units.includes('Unit 3'),JSON.stringify(listed));
   const result=await run('student-a','save_study_set',{class_id:'math',unit_title:'Unit 3',title:'Unit 3 Part 1',content});
   assert.equal(result.isError,undefined,JSON.stringify(result));
   assert.equal(JSON.parse(result.content[0].text).created.title,'Unit 3 Part 1');

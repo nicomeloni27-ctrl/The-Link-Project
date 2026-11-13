@@ -53,7 +53,7 @@ window.linkSync = () => {
 };
 function signedOut() {
   ++linkEpoch;
-  linkUser = null; linkReady = false; window.linkStoreKey = null;
+  linkUser = null; linkReady = false; window.linkStoreKey = null; window.linkDocumentsUser=null; window.refreshCloudDocs?.();
   data = localRead(KEY) || clone(defaults);
   signinButton.textContent = "Sign in";
   retrySync.hidden = true;
@@ -63,7 +63,7 @@ function signedOut() {
 async function signedIn(user, reload = false) {
   if (linkUser?.id === user.id && !reload) return;
   const epoch = ++linkEpoch, key = accountKey(user.id);
-  linkUser = user; linkReady = false; window.linkStoreKey = key;
+  linkUser = user; linkReady = false; window.linkStoreKey = key; window.linkDocumentsUser=user; window.refreshCloudDocs?.();
   signinButton.textContent = "Sign out";
   // Never borrow another account's or a shared guest's data automatically.
   const local = localRead(key) || clone(defaults);
@@ -110,7 +110,7 @@ async function initializeAuth() {
   try {
     const {createClient} = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
     linkClient = createClient(LINK_SUPABASE_URL, LINK_SUPABASE_KEY, {auth: {flowType: "pkce", persistSession: true, detectSessionInUrl: true, autoRefreshToken: true}});
-    const {data: result, error} = await linkClient.auth.getSession();
+    window.linkDocumentsClient=linkClient; const {data: result, error} = await linkClient.auth.getSession();
     // Register after initial SDK initialization, before the asynchronous hub read.
     linkClient.auth.onAuthStateChange((_event, session) => setTimeout(() => {
       if (session?.user && session.user.id !== linkUser?.id) signedIn(session.user);

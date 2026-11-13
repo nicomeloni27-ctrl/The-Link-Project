@@ -62,3 +62,28 @@ test('generates a private set only when the source is owned and filed in that un
   assert.equal(storageCalls,1);
  }finally{global.fetch=originalFetch;if(originalKey===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=originalKey}
 });
+
+test('unfiled source in the same class can generate General Materials without unrelated-unit access',async()=>{
+ process.env.OPENAI_API_KEY='fake-test-key';
+ let modelCalls=0;
+ const generated={title:'Pre-calculus Sequences Review',overview:'Arithmetic and geometric sequences',outline:[],graphs:[],questions:[]};
+ global.fetch=async(url,opts={})=>{
+  const u=String(url),p=new URL(u).searchParams;
+  if(u.endsWith('/auth/v1/user'))return reply({id:A});
+  if(u.includes('/rest/v1/study_hubs?'))return reply([{classes:[{id:'precalc',name:'AP Pre-calculus',units:[]}]}]);
+  if(u.includes('/rest/v1/study_generation_requests?'))return reply([]);
+  if(u.endsWith('/rest/v1/study_generation_requests'))return reply('',201);
+  if(u.includes('/rest/v1/study_documents?'))return reply([{id:DOC,name:'Sequences Answer Key.md',unit_title:null,storage_path:A+'/file.md',mime_type:'text/markdown',size_bytes:11}]);
+  if(u.includes('/storage/v1/object/authenticated/'))return new Response('a_n = a_1 + (n - 1)d');
+  if(u.includes('api.openai.com')){modelCalls++;return reply({status:'completed',output_text:JSON.stringify(generated)})}
+  if(u.endsWith('/rest/v1/study_sets'))return reply([{id:SET,title:generated.title}],201);
+  throw Error('Unexpected route: '+u);
+ };
+ try{
+  const res={statusCode:200,setHeader(){},end(v){this.json=JSON.parse(v)}};
+  await handler({method:'POST',headers:{authorization:'Bearer student-A'},body:{class_id:'precalc',unit_title:'General Materials',source_document_ids:[DOC]}},res);
+  assert.equal(res.statusCode,200,JSON.stringify(res.json));
+  assert.equal(res.json.title,generated.title);
+  assert.equal(modelCalls,1);
+ }finally{global.fetch=originalFetch;if(originalKey===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=originalKey}
+});

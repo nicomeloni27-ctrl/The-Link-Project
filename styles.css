@@ -38,3 +38,5 @@
 
 .study-chat-prompt{display:block;width:100%;padding:14px;border:1px solid #6da0d2;border-radius:12px;background:#082044;color:#eaf5ff;line-height:1.55;font:13px ui-monospace,monospace;resize:vertical;margin:12px 0}
 .study-chat-prompt[hidden]{display:none}
+
+.study-cloud-item{display:flex;align-items:center;gap:10px;flex:1;min-width:0;overflow-wrap:anywhere}.study-cloud-item input{width:18px;height:18px;flex-shrink:0;accent-color:#7cc9ff}.study-cloud-item button.link{text-align:left;margin:0;padding:5px;color:#d1e9ff;overflow-wrap:anywhere;white-space:normal}.study-cloud-item button.link:hover{text-decoration:underline}.study-panel .study-source:has(input:checked){border-color:#82bbf6;background:#214e80}.study-panel .study-source:focus-within{outline:2px solid #82bbf6}

@@ -5,8 +5,15 @@ const call=async(method,headers={})=>{
  const res={statusCode:200,headers:{},setHeader(k,v){this.headers[k]=v},end(v){this.body=JSON.parse(v)}};
  await handler({method,headers,body:{}},res);return res;
 };
-test('study generation only accepts POST',async()=>{
- const r=await call('GET');assert.equal(r.statusCode,405);
+test('study generation reports configuration without exposing private credentials',async()=>{
+ const original=process.env.OPENAI_API_KEY;
+ delete process.env.OPENAI_API_KEY;
+ try{const r=await call('GET');assert.equal(r.statusCode,200);assert.deepEqual(r.body,{configured:false});
+ process.env.OPENAI_API_KEY='private-test-value';const ready=await call('GET');assert.deepEqual(ready.body,{configured:true});assert.ok(!JSON.stringify(ready.body).includes('private-test-value'))}
+ finally{if(original===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=original}
+});
+test('study generation rejects unsupported methods',async()=>{
+ const r=await call('PUT');assert.equal(r.statusCode,405);
 });
 test('study generation requires a signed-in student',async()=>{
  const r=await call('POST');assert.equal(r.statusCode,401);

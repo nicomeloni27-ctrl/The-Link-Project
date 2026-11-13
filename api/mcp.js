@@ -101,7 +101,7 @@ export default async function handler(req,res){
  if(req.method==='GET')return response(res,405,{error:'Use POST for MCP JSON-RPC'},{Allow:'POST,OPTIONS','Content-Type':'application/json'});
  if(req.method!=='POST')return response(res,405,'Method not allowed');
  if((Number(req.headers['content-length'])||0)>500000)return response(res,413,{error:'Request too large'});
- const body=typeof req.body==='string'?JSON.parse(req.body):req.body;
+ let body;try{body=typeof req.body==='string'?JSON.parse(req.body):req.body}catch{return error(res,null,-32700,'Invalid JSON',400)}
  if(!body||body.jsonrpc!=='2.0'||typeof body.method!=='string')return error(res,body?.id??null,-32600,'Invalid JSON-RPC request',400);
  if(body.method==='notifications/initialized')return response(res,202,'');
  if(body.method==='initialize')return rpc(res,body.id,{protocolVersion:'2025-06-18',capabilities:{tools:{listChanged:false}},serverInfo:{name:'The Link Project',version:'0.1.0'}});

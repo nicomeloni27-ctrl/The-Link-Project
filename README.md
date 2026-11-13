@@ -18,7 +18,7 @@ Free study-hub website (HTML/CSS/JavaScript) with an optional Supabase backend.
 
 ## Configure Google sign-in
 1. In Supabase Dashboard open **Authentication → URL Configuration**.
-2. Set the **Site URL** to your actual production Vercel URL, for example `https://the-link-project-e8yts90fs-the-link-project.vercel.app`, if that URL is your working production address.
+2. Set the **Site URL** to your actual production Vercel URL, for example `https://the-link-project-ten.vercel.app`, if that URL is your working production address.
 3. Add that same URL to **Redirect URLs** (also include any other active domain you plan to use).
 4. Go to **Authentication → Sign In / Providers → Google**.
 5. Use https://console.cloud.google.com/auth/clients to create a **Web application** OAuth client. Complete the Google consent-screen setup if prompted.
@@ -31,6 +31,21 @@ Free study-hub website (HTML/CSS/JavaScript) with an optional Supabase backend.
 - The frontend uses the project's **publishable** Supabase key, which is designed to be public. The **service-role/secret** key must never appear in frontend source.
 - All remote class data lives in a per-user row with row-level security, configured by `database.sql`.
 - The original ChatGPT Work website and its materials were not imported.
-- When signing in for the first time, locally saved classes can initialize the user's empty cloud record; an existing cloud record takes priority.
+- First sign-in asks before importing shared guest classes. Account caches remain separate. Existing cloud classes load before editing is enabled; unsynced local changes can be recovered explicitly.
 - Class/unit changes are synced; file uploads are **local only**. Local browser storage is limited, and files can be lost if browser data is cleared.
 - The app does not request Google Drive, Classroom, Gmail, or ChatGPT account access.
+
+
+## Production and verification
+- Public production address: https://the-link-project-ten.vercel.app
+- Share the production address, not a deployment-specific preview URL. Protected deployment URLs can require a Vercel login.
+- In Supabase URL Configuration, use the production address as Site URL and allow `https://the-link-project-ten.vercel.app/` as a redirect. Keep any still-used existing URLs.
+- Google authorized JavaScript origin: `https://the-link-project-ten.vercel.app`.
+- Google callback URI remains `https://kkjlfvkbtcjkgourkowa.supabase.co/auth/v1/callback`.
+- Start sign-in using the website's button. Opening the Supabase callback directly cannot work: it has no OAuth state.
+- Signing out waits for queued saves and signs out this browser only. Uploads remain device-only.
+- Local account caches are not encrypted; use a separate browser profile on shared computers.
+- Simultaneous edits on multiple devices currently use last-write-wins behavior. Finish syncing before switching devices.
+
+Run regression checks with `node --test tests/auth.test.cjs`.
+The tests use a simulated backend; they do not replace a real Google sign-in and two-device acceptance test.

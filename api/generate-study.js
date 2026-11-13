@@ -34,7 +34,7 @@ export default async function handler(req,res){
   if(typeof class_id!=='string'||!/^[-_a-zA-Z0-9]{1,120}$/.test(class_id)||typeof unit_title!=='string'||!unit_title.trim()||unit_title.length>90||!Array.isArray(source_document_ids)||source_document_ids.length<1||source_document_ids.length>4||new Set(source_document_ids).size!==source_document_ids.length||!source_document_ids.every(id=>typeof id==='string'&&/^[0-9a-f-]{36}$/i.test(id)))return send(res,400,{error:'Select 1–4 documents from a valid class and unit'});
   const hubs=await (await supa('/rest/v1/study_hubs?user_id=eq.'+encodeURIComponent(user.id)+'&select=classes',token)).json();
   const course=hubs?.[0]?.classes?.find(c=>c.id===class_id);
-  if(!course||(course.units||[]).includes(unit_title)===false)return send(res,403,{error:'Class or unit does not belong to your account'});
+  if(!course||(unit_title!=='General Materials'&&!(course.units||[]).includes(unit_title)))return send(res,403,{error:'Class or unit does not belong to your account'});
   const usage=await (await supa('/rest/v1/study_generation_requests?user_id=eq.'+encodeURIComponent(user.id)+'&created_at=gte.'+encodeURIComponent(new Date(Date.now()-86400000).toISOString())+'&select=created_at&order=created_at.desc&limit=6',token)).json();
   if(usage?.length>=5)return send(res,429,{error:'Your daily AI generation limit is 5 study sets'});
   if(usage?.length&&Date.now()-new Date(usage[0].created_at).getTime()<120000)return send(res,429,{error:'Please allow two minutes between AI generation requests'});
@@ -43,7 +43,7 @@ export default async function handler(req,res){
   for(const id of source_document_ids){
    const docs=await (await supa('/rest/v1/study_documents?id=eq.'+id+'&user_id=eq.'+user.id+'&class_id=eq.'+encodeURIComponent(class_id)+'&select=id,name,unit_title,storage_path,mime_type,size_bytes',token)).json();
    const doc=docs?.[0];
-   if(!doc||doc.unit_title!==unit_title||!doc.storage_path.startsWith(user.id+'/'))return send(res,403,{error:'One or more sources are not filed in your selected unit'});
+   if(!doc||(doc.unit_title!==null&&doc.unit_title!==unit_title)||!doc.storage_path.startsWith(user.id+'/'))return send(res,403,{error:'One or more sources are not available in this class/unit'});
    if(doc.size_bytes>8*1024*1024)return send(res,413,{error:'Limit each source file to 8 MB'});
    total+=doc.size_bytes;
    if(total>12*1024*1024)return send(res,413,{error:'Combined source size limit is 12 MB'});

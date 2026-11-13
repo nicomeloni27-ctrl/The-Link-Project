@@ -5,15 +5,19 @@ const cloudStatus=document.createElement("p");cloudStatus.className="note";
 const cloudList=document.createElement("div");
 const cloudUnitLabel=document.createElement("label");cloudUnitLabel.textContent="File uploads under unit: ";
 const cloudUnitSelect=document.createElement("select");cloudUnitSelect.setAttribute("aria-label","Choose upload unit");
-cloudUnitLabel.append(cloudUnitSelect);cloudBox.append(cloudHeading,cloudUnitLabel,cloudStatus,cloudList);
+cloudUnitLabel.append(cloudUnitSelect);
+window.linkUploadUnitSelect=cloudUnitSelect;cloudBox.append(cloudHeading,cloudUnitLabel,cloudStatus,cloudList);
 document.querySelector("#course .columns").append(cloudBox);
 let cloudEpoch=0;
 window.refreshCloudDocs=async function(){
  const epoch=++cloudEpoch,client=window.linkDocumentsClient,uid=window.linkDocumentsUser?.id,classId=active;
  cloudList.replaceChildren();
+ const previousUploadUnit=cloudUnitSelect.value;
  cloudUnitSelect.replaceChildren();const none=document.createElement("option");none.value="";none.textContent="No specific unit";cloudUnitSelect.append(none);
  const course=data.find(c=>c.id===classId);
  for(const unit of course?.units||[]){const option=document.createElement("option");option.value=unit;option.textContent=unit;cloudUnitSelect.append(option)}
+ if(course?.units?.includes(previousUploadUnit))cloudUnitSelect.value=previousUploadUnit;
+ else if(course?.units?.includes(window.linkPreferredUploadUnit))cloudUnitSelect.value=window.linkPreferredUploadUnit;
  if(!classId)return;
  if(!uid||!client){cloudStatus.textContent="Sign in to sync documents across devices.";return}
  cloudStatus.textContent="Loading documents…";

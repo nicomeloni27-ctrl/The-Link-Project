@@ -35,6 +35,7 @@ window.linkCloudUpload=async function(files,classId){
  if(!client||!uid){alert("Please sign in first.");return}
  const unitTitle=cloudUnitSelect.value||null;
  const course=data.find(c=>c.id===classId);if(unitTitle&&!course?.units?.includes(unitTitle)){alert("Choose an existing unit first.");return}
+ const uploaded=[];
  for(const file of files){
   if(file.size>10485760){alert("10 MB maximum: "+file.name);continue}
   const ext=file.name.split(".").pop().toLowerCase();
@@ -44,8 +45,9 @@ window.linkCloudUpload=async function(files,classId){
   cloudStatus.textContent="Uploading "+file.name+"…";
   const {error}=await client.storage.from("study-documents").upload(path,file,{contentType:mime});
   if(error){alert("Upload failed: "+file.name);continue}
-  const saved=await client.from("study_documents").insert({user_id:uid,class_id:classId,unit_title:unitTitle,name:file.name.slice(0,255),storage_path:path,mime_type:mime,size_bytes:file.size});
-  if(saved.error){await client.storage.from("study-documents").remove([path]);alert("Saving document record failed.");}
+  const saved=await client.from("study_documents").insert({user_id:uid,class_id:classId,unit_title:unitTitle,name:file.name.slice(0,255),storage_path:path,mime_type:mime,size_bytes:file.size}).select("id").single();
+  if(saved.error){await client.storage.from("study-documents").remove([path]);alert("Saving document record failed.");}else if(saved.data?.id)uploaded.push(saved.data.id);
  }
- window.refreshCloudDocs();
+ await window.refreshCloudDocs();
+ await window.studyOnUploaded?.(uploaded,classId,unitTitle);
 };

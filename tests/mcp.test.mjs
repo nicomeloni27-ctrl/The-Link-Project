@@ -18,7 +18,9 @@ function harness(){
   if(!uid)return respond({message:'Unauthorized'},401);
   if(path==='/rest/v1/study_hubs'&&opts.method==='POST'){const row=JSON.parse(opts.body);if(row.user_id!==uid)return respond({},403);hubs.set(uid,row.classes);return respond(null,201)}
   if(path==='/rest/v1/study_hubs')return respond([{classes:hubs.get(uid)}]);
-  if(path==='/rest/v1/study_documents')return respond(docs.filter(d=>d.user_id===uid&&(!search.has('id')||search.get('id')==='eq.'+d.id)));
+  if(path==='/rest/v1/study_documents'&&opts.method==='POST'){const row=JSON.parse(opts.body);if(row.user_id!==uid)return respond({},403);const saved={...row,id:'22222222-2222-2222-2222-222222222222'};docs.push(saved);return respond([saved],201)}
+  if(path==='/rest/v1/study_documents')return respond(docs.filter(d=>d.user_id===uid&&(!search.has('id')||search.get('id')==='eq.'+d.id)&&(!search.has('class_id')||search.get('class_id')==='eq.'+d.class_id)&&(!search.has('unit_title')||search.get('unit_title')==='eq.'+d.unit_title)));
+  if(path.startsWith('/storage/v1/object/study-documents/'))return respond({},201);
   return respond({},404);
  };
  const call=async(method,token,args={},id=1)=>{
@@ -45,5 +47,23 @@ test('two students see independent classes and cannot retrieve each other\'s doc
  const forbidden=await h.call('tools/call','student-a',{name:'get_document',arguments:{document_id:'11111111-1111-1111-1111-111111111111'}});
  assert.equal(forbidden.data.result.isError,true);
  assert.match(forbidden.data.result.content[0].text,/not found/);
+ }finally{h.restore()}
+});
+
+test('student can file a text resource in an existing unit and another student cannot list it',async()=>{
+ const h=harness();
+ try{
+  const run=async(token,name,args={})=>{
+   const result=(await h.call('tools/call',token,{name,arguments:args})).data.result;
+   assert.equal(result.isError,undefined,JSON.stringify(result));
+   return JSON.parse(result.content[0].text);
+  };
+  await run('student-a','create_unit',{class_id:'math',title:'Unit 3'});
+  const saved=await run('student-a','save_text_document',{class_id:'math',unit_title:'Unit 3',name:'Review.md',content:'# Notes'});
+  assert.equal(saved.created.unit_title,'Unit 3');
+  const a=await run('student-a','list_documents',{class_id:'math',unit_title:'Unit 3'});
+  const b=await run('student-b','list_documents',{class_id:'history'});
+  assert.equal(a.length,1);assert.equal(a[0].name,'Review.md');
+  assert.equal(b.length,1);assert.equal(b[0].name,'Private.txt');
  }finally{h.restore()}
 });

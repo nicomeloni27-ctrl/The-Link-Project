@@ -1,5 +1,6 @@
 "use strict";
 // Per-student source-grounded review sheets, practice tests and learning progress.
+const GENERAL_UNIT="General Materials";
 const studyPanel=document.createElement("article");studyPanel.className="panel study-panel";
 document.querySelector("#course").append(studyPanel);
 const S=(tag,txt="",cls="")=>{const n=document.createElement(tag);n.textContent=txt;if(cls)n.className=cls;return n};
@@ -23,14 +24,20 @@ auto.onchange=()=>{if(!studyState.aiReady){auto.checked=false;return}localStorag
 unitSelect.onchange=()=>{studyState.unit=unitSelect.value;window.linkPreferredUploadUnit=studyState.unit;if(window.linkUploadUnitSelect)window.linkUploadUnitSelect.value=studyState.unit;loadWorkspace()};
 refreshBtn.onclick=()=>loadWorkspace();
 generateBtn.onclick=()=>runGeneration();
-chatBtn.onclick=()=>{
- const course=data.find(c=>c.id===active),selected=checkboxDocs(),names=studyState.docs.filter(d=>selected.includes(d.id)).map(d=>d.name);
+function prepareChatPrompt(selectedIds){
+ const course=data.find(c=>c.id===active);
+ const selected=Array.isArray(selectedIds)?selectedIds:checkboxDocs();
+ const docs=studyState.docs.filter(d=>selected.includes(d.id));
  if(!course||!studyState.unit){setStatus("Choose a class and unit first.");return}
- const prompt=`Use my connected The Link Project tools to build and save a source-grounded review sheet and practice test for ${course.name}, ${studyState.unit}. First call list_classes and confirm the class/unit. Use only these authorized source files: ${names.length?names.join(", "):"(I will attach the source documents directly in ChatGPT)"}. If you cannot actually read the source documents through The Link, ask me to attach them instead of inventing material. Create a structured outline, detailed examples, conceptual graphs only where supported, and MCQs only adapted from questions actually provided. Give an option-specific hint for every answer without revealing the correct option. Save through the save_study_set tool with a descriptive title and confirm where it went. Do not reproduce copyrighted questions verbatim.`;
+ if(!docs.length){setStatus("Select one or more documents to use as study sources.");return}
+ const entries=docs.map(d=>d.name+" (document ID: "+d.id+")").join("; ");
+ const prompt=`Use my connected The Link Project tools to build and save study resources for ${course.name}, ${studyState.unit}. The selected resources are: ${entries}. First call list_classes and list_documents, then use get_document for each selected ID to read its contents. Do not make up content if a tool cannot read a file; ask me to attach it to ChatGPT instead. Only use the selected document contents. Generate a thorough review outline with expandable topic details and examples, graphs where supported, and a multiple-choice practice test only if the documents actually include questions. For every MCQ provide four non-revealing, option-specific hints before the answer is submitted. Cite source filenames for each topic and question. Afterward call save_study_set in The Link to save the structured review sheet and test to ${course.name}, ${studyState.unit}. Do not reproduce copyrighted questions verbatim.`;
  chatPrompt.value=prompt;chatPrompt.hidden=false;chatPrompt.focus();chatPrompt.select();
- if(navigator.clipboard?.writeText)navigator.clipboard.writeText(prompt).then(()=>setStatus("ChatGPT request copied. Paste it into a chat with The Link Project connected, and attach documents if asked.")).catch(()=>setStatus("Copy the request from the text box, then paste it into ChatGPT."));
- else setStatus("Copy the request from the text box, then paste it into ChatGPT.");
-};
+ if(navigator.clipboard?.writeText)navigator.clipboard.writeText(prompt).then(()=>setStatus("Request copied. Paste it into ChatGPT with The Link connected; attach any files ChatGPT cannot read.")).catch(()=>setStatus("Copy the text below into ChatGPT."));
+ else setStatus("Copy the text below into ChatGPT.");
+}
+chatBtn.onclick=()=>prepareChatPrompt();
+
 function setStatus(s){status.textContent=s}
 async function checkAI(){
  try{const r=await fetch("/api/generate-study",{method:"GET"});const result=await r.json();studyState.aiReady=r.ok&&result.configured===true}
@@ -58,24 +65,25 @@ async function loadWorkspace(){
  const course=data.find(c=>c.id===classId);
  unitSelect.replaceChildren();
  const units=course?.units||[];
- if(!units.length){unitSelect.append(new Option("Add a unit to create a study set",""));studyState.unit="";setStatus("Add a unit and upload study materials first.");return}
- for(const name of units)unitSelect.append(new Option(name,name));
- if(!units.includes(unit))studyState.unit=units[0];
+ unitSelect.append(new Option("General Materials · Unfiled",GENERAL_UNIT));
+ for(const name of units)if(name!==GENERAL_UNIT)unitSelect.append(new Option(name,name));
+ if(!units.includes(unit)&&unit!==GENERAL_UNIT)studyState.unit=units[0]||GENERAL_UNIT;
  unitSelect.value=studyState.unit;
  window.linkPreferredUploadUnit=studyState.unit;
- if(window.linkUploadUnitSelect&&[...window.linkUploadUnitSelect.options].some(x=>x.value===studyState.unit))window.linkUploadUnitSelect.value=studyState.unit;
+ if(window.linkUploadUnitSelect){if(studyState.unit===GENERAL_UNIT)window.linkUploadUnitSelect.value="";else if([...window.linkUploadUnitSelect.options].some(x=>x.value===studyState.unit))window.linkUploadUnitSelect.value=studyState.unit;}
  auto.checked=studyState.aiReady&&localStorage.getItem(key())==="true";
  if(!window.linkDocumentsUser||!window.linkDocumentsClient){setStatus("Sign in to use AI study sets and save quiz progress.");return}
  try{
   const {client,user}=await authenticated();
   const [docs,sets,unitSets]=await Promise.all([
-   client.from("study_documents").select("id,name,unit_title,created_at").eq("user_id",user.id).eq("class_id",classId).eq("unit_title",studyState.unit).order("created_at",{ascending:false}),
+   client.from("study_documents").select("id,name,unit_title,created_at").eq("user_id",user.id).eq("class_id",classId).order("created_at",{ascending:false}).limit(200),
    client.from("study_sets").select("id,title,content,created_at").eq("user_id",user.id).eq("class_id",classId).eq("unit_title",studyState.unit).order("created_at",{ascending:false}).limit(20),
    client.from("study_sets").select("id").eq("user_id",user.id).eq("class_id",classId).eq("unit_title",studyState.unit).limit(200)
   ]);
   if(epoch!==studyState.epoch)return;
   for(const r of [docs,sets,unitSets])if(r.error)throw Error(r.error.message);
-  studyState.docs=docs.data||[];studyState.sets=sets.data||[];
+  studyState.docs=(docs.data||[]).filter(d=>d.unit_title==null||d.unit_title===studyState.unit);
+  studyState.sets=sets.data||[];
   let answers=[];
   if(unitSets.data?.length){
    const ids=unitSets.data.map(s=>s.id);
@@ -84,13 +92,13 @@ async function loadWorkspace(){
   }
   if(epoch!==studyState.epoch)return;studyState.answers=answers;
   renderSources();renderSets();renderProgress();
-  setStatus(studyState.docs.length?studyState.docs.length+" source document(s) in "+studyState.unit+". Choose sources and generate a study set.":"No sources in this unit. Choose the unit before uploading PDFs or other materials.");
+  setStatus(studyState.docs.length?studyState.docs.length+" available source document(s). Select the materials you want to use, then click Create Review Materials.":"No documents yet. Upload study materials or choose a different unit.");
  }catch(e){setStatus("Study sets unavailable: "+e.message)}
 }
 function renderSources(){
  sourceList.replaceChildren();
- if(!studyState.docs.length){sourceList.append(S("p","No cloud documents filed under this unit.","empty"));return}
- studyState.docs.forEach(d=>{const label=S("label","","study-source"),check=S("input");check.type="checkbox";check.value=d.id;check.checked=true;label.append(check,S("span",d.name));sourceList.append(label)});
+ if(!studyState.docs.length){sourceList.append(S("p","No documents are available for this unit yet. You can also use unfiled class resources.","empty"));return}
+ studyState.docs.forEach(d=>{const label=S("label","","study-source"),check=S("input");check.type="checkbox";check.value=d.id;check.checked=true;label.append(check,S("span",d.name+(d.unit_title===null?" · Unfiled class material":"")));sourceList.append(label)});
 }
 function renderSets(){
  setList.replaceChildren();
@@ -222,13 +230,21 @@ function renderProgress(){
  setList.after(stats);
 }
 window.refreshStudyWorkspace=loadWorkspace;
+window.linkGenerateFromCloud=async function(ids,classId){
+ if(classId!==active){open(classId);await loadWorkspace()}
+ if(!ids.length){setStatus("Select at least one resource first.");return}
+ if(ids.length>4){setStatus("Choose up to four resources per review.");return}
+ if(studyState.aiReady)await runGeneration(ids);
+ else prepareChatPrompt(ids);
+};
 checkAI();
 window.studyOnUploaded=async function(uploaded,classId,unit){
  if(!uploaded.length||classId!==active)return;
- if(studyState.unit!==unit){studyState.unit=unit;await loadWorkspace()}else await loadWorkspace();
- if(auto.checked&&unit&&uploaded.length<=4){
+ const target=unit||GENERAL_UNIT;
+ if(studyState.unit!==target){studyState.unit=target;await loadWorkspace()}else await loadWorkspace();
+ if(auto.checked&&uploaded.length<=4){
   setStatus("New sources uploaded. Starting automatic generation as requested…");
   await runGeneration(uploaded);
- }else if(auto.checked&&!unit){setStatus("Select a unit before uploading to use automatic study-set generation.")}
+ }
 };
 loadWorkspace();

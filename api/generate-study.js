@@ -53,7 +53,7 @@ export default async function handler(req,res){
    if(['text/plain','text/markdown'].includes(mime)){
      content.push({type:'input_text',text:Buffer.from(source).toString('utf8').slice(0,170000)});
    }else if(mime==='application/pdf'){
-     content.push({type:'input_file',filename:doc.name,file_data:'data:application/pdf;base64,'+Buffer.from(source).toString('base64'),detail:'high'});
+     content.push({type:'input_file',filename:doc.name,file_data:'data:application/pdf;base64,'+Buffer.from(source).toString('base64')});
    }else if(['image/png','image/jpeg','image/webp'].includes(mime)){
      content.push({type:'input_image',image_url:'data:'+mime+';base64,'+Buffer.from(source).toString('base64')});
    }else return send(res,415,{error:'Only PDF, text, Markdown, and images are supported'});
@@ -70,6 +70,9 @@ export default async function handler(req,res){
   if(result.status==='incomplete')return send(res,502,{error:'AI response exceeded output limits; try fewer or shorter documents'});
   const raw=extractOutput(result);if(!raw)return send(res,502,{error:'AI service returned no study materials'});
   let generated;try{generated=JSON.parse(raw)}catch{return send(res,502,{error:'Could not parse generated study materials'})}
+  if(!generated||typeof generated.title!=='string'||typeof generated.overview!=='string'||!generated.title.trim())return send(res,502,{error:'Study output lacks a valid title or overview'});
+  for(const q of generated.questions||[])if(typeof q.id!=='string'||typeof q.topic!=='string'||typeof q.prompt!=='string'||typeof q.explanation!=='string'||typeof q.source!=='string')return send(res,502,{error:'Study questions are incomplete'});
+
   if(!Array.isArray(generated.outline)||!Array.isArray(generated.questions)||!Array.isArray(generated.graphs))return send(res,502,{error:'Study output was incomplete'});
   generated.questions=generated.questions.filter(q=>Array.isArray(q.options)&&q.options.length===4&&Array.isArray(q.hints)&&q.hints.length===4&&Number.isInteger(q.correct_index)&&q.correct_index>=0&&q.correct_index<4).slice(0,30);
   generated.graphs=generated.graphs.slice(0,8);

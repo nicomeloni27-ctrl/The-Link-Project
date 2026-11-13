@@ -1,0 +1,49 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import handler from '../api/mcp.js';
+
+function makeResponse(){return {statusCode:200,headers:{},setHeader(k,v){this.headers[k.toLowerCase()]=v},end(v=''){this.body=v;return this}}}
+const userA='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+const userB='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+function harness(){
+ const hubs=new Map([[userA,[{id:'math',name:'Math',units:[],description:'',icon:'◇'}]],[userB,[{id:'history',name:'History',units:[],description:'',icon:'◇'}]]]);
+ const docs=[{id:'11111111-1111-1111-1111-111111111111',user_id:userB,class_id:'history',storage_path:userB+'/file.txt',name:'Private.txt',mime_type:'text/plain'}];
+ const original=globalThis.fetch;
+ globalThis.fetch=async (url,opts={})=>{
+  const token=(opts.headers?.Authorization||'').replace('Bearer ','');
+  const uid=token==='student-a'?userA:token==='student-b'?userB:null;
+  const path=new URL(url).pathname,search=new URL(url).searchParams;
+  const respond=(data,status=200)=>({ok:status>=200&&status<300,status,text:async()=>JSON.stringify(data)});
+  if(path==='/auth/v1/user')return uid?respond({id:uid}):respond({message:'Unauthorized'},401);
+  if(!uid)return respond({message:'Unauthorized'},401);
+  if(path==='/rest/v1/study_hubs'&&opts.method==='POST'){const row=JSON.parse(opts.body);if(row.user_id!==uid)return respond({},403);hubs.set(uid,row.classes);return respond(null,201)}
+  if(path==='/rest/v1/study_hubs')return respond([{classes:hubs.get(uid)}]);
+  if(path==='/rest/v1/study_documents')return respond(docs.filter(d=>d.user_id===uid&&(!search.has('id')||search.get('id')==='eq.'+d.id)));
+  return respond({},404);
+ };
+ const call=async(method,token,args={},id=1)=>{
+  const req={method:'POST',headers:{authorization:token?'Bearer '+token:''},body:{jsonrpc:'2.0',id,method,params:method==='tools/call'?args:undefined}};
+  const res=makeResponse();await handler(req,res);return {status:res.statusCode,data:JSON.parse(res.body)};
+ };
+ return {call,hubs,restore(){globalThis.fetch=original}};
+}
+test('MCP metadata and unauthorized calls',async()=>{
+ const h=harness();
+ try{const init=await h.call('initialize');assert.equal(init.data.result.serverInfo.name,'The Link Project');
+ const list=await h.call('tools/list');assert.equal(list.data.result.tools.length,6);
+ const noAuth=await h.call('tools/call',null,{name:'list_classes',arguments:{}});assert.equal(noAuth.status,401)}
+ finally{h.restore()}
+});
+test('two students see independent classes and cannot retrieve each other\'s documents',async()=>{
+ const h=harness();
+ try{
+ const run=async(token,name,args={})=>JSON.parse((await h.call('tools/call',token,{name,arguments:args})).data.result.content[0].text);
+ const a=await run('student-a','list_classes'),b=await run('student-b','list_classes');
+ assert.equal(a[0].name,'Math');assert.equal(b[0].name,'History');
+ const created=await run('student-a','create_class',{name:'AP Chemistry'});assert.equal(created.created.name,'AP Chemistry');
+ assert.equal((await run('student-b','list_classes')).length,1);
+ const forbidden=await h.call('tools/call','student-a',{name:'get_document',arguments:{document_id:'11111111-1111-1111-1111-111111111111'}});
+ assert.equal(forbidden.data.result.isError,true);
+ assert.match(forbidden.data.result.content[0].text,/not found/);
+ }finally{h.restore()}
+});

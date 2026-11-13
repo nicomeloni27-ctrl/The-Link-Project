@@ -15,7 +15,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22'
-      - run: node --test tests/auth.test.cjs tests/mcp.test.mjs tests/study.test.mjs
+      - run: node --test tests/auth.test.cjs tests/mcp.test.mjs tests/study.test.mjs tests/study-security.test.mjs
       - run: node --check api/mcp.js && node --check api/generate-study.js && node --check study-workspace.js && node --check cloud-documents.js && node --check app.js
   oauth-discovery:
     runs-on: ubuntu-latest

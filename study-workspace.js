@@ -28,7 +28,8 @@ chatBtn.onclick=()=>{
  if(!course||!studyState.unit){setStatus("Choose a class and unit first.");return}
  const prompt=`Use my connected The Link Project tools to build and save a source-grounded review sheet and practice test for ${course.name}, ${studyState.unit}. First call list_classes and confirm the class/unit. Use only these authorized source files: ${names.length?names.join(", "):"(I will attach the source documents directly in ChatGPT)"}. If you cannot actually read the source documents through The Link, ask me to attach them instead of inventing material. Create a structured outline, detailed examples, conceptual graphs only where supported, and MCQs only adapted from questions actually provided. Give an option-specific hint for every answer without revealing the correct option. Save through the save_study_set tool with a descriptive title and confirm where it went. Do not reproduce copyrighted questions verbatim.`;
  chatPrompt.value=prompt;chatPrompt.hidden=false;chatPrompt.focus();chatPrompt.select();
- navigator.clipboard?.writeText(prompt).then(()=>setStatus("ChatGPT request copied. Paste it into a chat with The Link Project connected, and attach documents if asked.")).catch(()=>setStatus("Copy the request from the text box, then paste it into ChatGPT."));
+ if(navigator.clipboard?.writeText)navigator.clipboard.writeText(prompt).then(()=>setStatus("ChatGPT request copied. Paste it into a chat with The Link Project connected, and attach documents if asked.")).catch(()=>setStatus("Copy the request from the text box, then paste it into ChatGPT."));
+ else setStatus("Copy the request from the text box, then paste it into ChatGPT.");
 };
 function setStatus(s){status.textContent=s}
 async function checkAI(){

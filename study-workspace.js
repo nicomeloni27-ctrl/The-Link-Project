@@ -3,7 +3,7 @@
 const studyPanel=document.createElement("article");studyPanel.className="panel study-panel";
 document.querySelector("#course").append(studyPanel);
 const S=(tag,txt="",cls="")=>{const n=document.createElement(tag);n.textContent=txt;if(cls)n.className=cls;return n};
-const studyState={classId:null,unit:"",docs:[],sets:[],answers:[],current:null,chosen:new Map(),busy:false,epoch:0};
+const studyState={classId:null,unit:"",docs:[],sets:[],answers:[],current:null,chosen:new Map(),busy:false,epoch:0,aiReady:false};
 function boxLine(parent,...children){const d=S("div","","study-row");d.append(...children);parent.append(d);return d}
 const heading=S("div","","heading");heading.append(S("h2","Study sets & practice tests"));
 const unitSelect=S("select");unitSelect.setAttribute("aria-label","Choose study unit");unitSelect.className="study-select";
@@ -14,15 +14,23 @@ const actions=S("div","","study-actions"),generateBtn=S("button","Create review 
 actions.append(generateBtn,refreshBtn);
 const progressArea=S("div","","study-progress");progressArea.hidden=true;const progressLabel=S("p","","note");progressLabel.setAttribute("role","status");const progress=S("progress");progress.max=100;progress.value=0;progressArea.append(progressLabel,progress);
 const status=S("p","","note");status.setAttribute("role","status");
+const aiAvailability=S("p","Checking whether automatic AI generation is available…","note");
 const setList=S("div");const display=S("div");
-studyPanel.append(heading,unitSelect,autoLabel,note,sourceTitle,sourceList,actions,progressArea,status,setList,display);
+studyPanel.append(heading,unitSelect,autoLabel,note,aiAvailability,sourceTitle,sourceList,actions,progressArea,status,setList,display);
 function key(){return "link-ai-auto-"+(window.linkDocumentsUser?.id||"guest")}
-auto.onchange=()=>{localStorage.setItem(key(),auto.checked?"true":"false")};
+auto.onchange=()=>{if(!studyState.aiReady){auto.checked=false;return}localStorage.setItem(key(),auto.checked?"true":"false")};
 unitSelect.onchange=()=>{studyState.unit=unitSelect.value;window.linkPreferredUploadUnit=studyState.unit;if(window.linkUploadUnitSelect)window.linkUploadUnitSelect.value=studyState.unit;loadWorkspace()};
 refreshBtn.onclick=()=>loadWorkspace();
 generateBtn.onclick=()=>runGeneration();
 function setStatus(s){status.textContent=s}
-function busy(on,label){studyState.busy=on;generateBtn.disabled=on;progressArea.hidden=!on;if(on){progress.value=20;progressLabel.textContent=label}else progress.value=0}
+async function checkAI(){
+ try{const r=await fetch("/api/generate-study",{method:"GET"});const result=await r.json();studyState.aiReady=r.ok&&result.configured===true}
+ catch{studyState.aiReady=false}
+ auto.disabled=!studyState.aiReady;
+ if(!studyState.aiReady){auto.checked=false;generateBtn.disabled=true;aiAvailability.textContent="Automatic AI generation is not configured yet. Existing study sets can be opened here; the site administrator must configure the server-side OpenAI API integration."}
+ else{generateBtn.disabled=studyState.busy;aiAvailability.textContent="AI generation is available. Enable automatic generation only if you agree to send the selected sources to the AI provider."}
+}
+function busy(on,label){studyState.busy=on;generateBtn.disabled=on||!studyState.aiReady;progressArea.hidden=!on;if(on){progress.value=20;progressLabel.textContent=label}else progress.value=0}
 async function authenticated(){
  const client=window.linkDocumentsClient,user=window.linkDocumentsUser;
  if(!client||!user)throw Error("Sign in to create and save private study sets");
@@ -47,7 +55,7 @@ async function loadWorkspace(){
  unitSelect.value=studyState.unit;
  window.linkPreferredUploadUnit=studyState.unit;
  if(window.linkUploadUnitSelect&&[...window.linkUploadUnitSelect.options].some(x=>x.value===studyState.unit))window.linkUploadUnitSelect.value=studyState.unit;
- auto.checked=localStorage.getItem(key())==="true";
+ auto.checked=studyState.aiReady&&localStorage.getItem(key())==="true";
  if(!window.linkDocumentsUser||!window.linkDocumentsClient){setStatus("Sign in to use AI study sets and save quiz progress.");return}
  try{
   const {client,user}=await authenticated();
@@ -87,6 +95,7 @@ function renderSets(){
 }
 async function runGeneration(preselected){
  if(studyState.busy)return;
+ if(!studyState.aiReady){setStatus("Automatic AI generation is not configured yet.");return}
  const classId=active,unit=studyState.unit,ids=preselected||checkboxDocs();
  if(!classId||!unit){setStatus("Add or select a unit.");return}
  if(!ids.length){setStatus("Select at least one source document before generating.");return}
@@ -204,6 +213,7 @@ function renderProgress(){
  setList.after(stats);
 }
 window.refreshStudyWorkspace=loadWorkspace;
+checkAI();
 window.studyOnUploaded=async function(uploaded,classId,unit){
  if(!uploaded.length||classId!==active)return;
  if(studyState.unit!==unit){studyState.unit=unit;await loadWorkspace()}else await loadWorkspace();

@@ -27,7 +27,7 @@ generateBtn.onclick=()=>runGeneration();
 function prepareChatPrompt(selectedIds){
  const course=data.find(c=>c.id===active);
  const selected=Array.isArray(selectedIds)?selectedIds:checkboxDocs();
- const docs=studyState.docs.filter(d=>selected.includes(d.id));
+ const docs=(window.linkClassCloudFiles||studyState.docs).filter(d=>selected.includes(d.id));
  if(!course||!studyState.unit){setStatus("Choose a class and unit first.");return}
  if(!docs.length){setStatus("Select one or more documents to use as study sources.");return}
  const entries=docs.map(d=>d.name+" (document ID: "+d.id+")").join("; ");
@@ -233,6 +233,11 @@ window.refreshStudyWorkspace=loadWorkspace;
 window.linkGenerateFromCloud=async function(ids,classId){
  if(classId!==active){open(classId);await loadWorkspace()}
  if(!ids.length){setStatus("Select at least one resource first.");return}
+ const sources=(window.linkClassCloudFiles||[]).filter(d=>ids.includes(d.id));
+ if(sources.length===ids.length&&sources.length&&sources.every(d=>d.unit_title===sources[0].unit_title)){
+  const suggested=sources[0].unit_title||GENERAL_UNIT;
+  if(studyState.unit!==suggested){studyState.unit=suggested;await loadWorkspace()}
+ }
  if(ids.length>4){setStatus("Choose up to four resources per review.");return}
  if(studyState.aiReady)await runGeneration(ids);
  else prepareChatPrompt(ids);

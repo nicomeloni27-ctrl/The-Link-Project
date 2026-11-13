@@ -1,6 +1,6 @@
 # ChatGPT integration — deployment checklist
 
-The Link Project supports a **draft remote MCP endpoint** at `https://the-link-project-ten.vercel.app/api/mcp` using **Supabase-issued OAuth 2.1 user tokens**. All requests run with the **student's own bearer token**; the project must **never** use a service-role token for ChatGPT document or class operations.
+The Link Project has an **unreleased remote MCP endpoint** at `https://the-link-project-ten.vercel.app/api/mcp` using **Supabase-issued OAuth 2.1 user tokens**. All requests run with the **student's own bearer token**; the project must **never** use a service-role token for ChatGPT document or class operations.
 
 > **Do not advertise this as fully connected until the OAuth setup and two real-account tests below pass.** ChatGPT app approval and public availability are controlled by ChatGPT and may require additional review or account eligibility.
 
@@ -54,7 +54,7 @@ The MCP endpoint is stateless JSON-RPC over HTTP and returns JSON responses. It 
 ## Known limitations and next steps
 
 - Class lists are stored in one JSONB row per user. The current website and MCP tools use **last-write-wins** saves; simultaneous editing in two devices can overwrite a recent change. Avoid simultaneous changes until optimistic concurrency is added.
-- This endpoint does not automatically indicate which unit a document belongs to: `study_documents` currently stores `class_id` only. To support unit-level filing, add a nullable `unit_title` column, update the UI and tool inputs, and test migration without dropping any user data.
+- A nullable `unit_title` column was added without deleting old rows, and the website + MCP tool inputs now support filing under an existing class unit. Existing documents without a unit remain unassigned.
 - The existing website may still keep older guest uploads in the browser, while signed-in documents are stored in the private bucket.
 - ChatGPT public discoverability is a platform review/availability decision; a deployed MCP endpoint does **not** automatically make a public ChatGPT app.
 - This project has not yet passed a two-real-account OAuth acceptance test; do not mark full integration **connected** until it does.

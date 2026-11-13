@@ -18,6 +18,7 @@ document.querySelector("#course .columns").append(cloudBox);
 let cloudEpoch=0;
 window.refreshCloudDocs=async function(){
  const epoch=++cloudEpoch,client=window.linkDocumentsClient,uid=window.linkDocumentsUser?.id,classId=active;
+ window.linkClassCloudFiles=[];
  cloudList.replaceChildren();
  const previousUploadUnit=cloudUnitSelect.value;
  cloudUnitSelect.replaceChildren();const none=document.createElement("option");none.value="";none.textContent="No specific unit";cloudUnitSelect.append(none);
@@ -32,6 +33,7 @@ window.refreshCloudDocs=async function(){
  const {data:rows,error}=await client.from("study_documents").select("id,name,storage_path,unit_title").eq("user_id",uid).eq("class_id",classId).order("created_at",{ascending:false});
  if(epoch!==cloudEpoch)return;
  if(error){cloudStatus.textContent="Document list unavailable.";return}
+ window.linkClassCloudFiles=rows;
  cloudStatus.textContent=rows.length?rows.length+" saved document(s)":"No cloud documents yet.";
  for(const file of rows){
   const line=document.createElement("div");line.className="item";

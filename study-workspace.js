@@ -28,7 +28,7 @@ async function checkAI(){
  catch{studyState.aiReady=false}
  auto.disabled=!studyState.aiReady;
  if(!studyState.aiReady){auto.checked=false;generateBtn.disabled=true;aiAvailability.textContent="Automatic AI generation is not configured yet. Existing study sets can be opened here; the site administrator must configure the server-side OpenAI API integration."}
- else{generateBtn.disabled=studyState.busy;aiAvailability.textContent="AI generation is available. Enable automatic generation only if you agree to send the selected sources to the AI provider."}
+ else{generateBtn.disabled=studyState.busy;auto.checked=localStorage.getItem(key())==="true";aiAvailability.textContent="AI generation is available. Enable automatic generation only if you agree to send the selected sources to the AI provider."}
 }
 function busy(on,label){studyState.busy=on;generateBtn.disabled=on||!studyState.aiReady;progressArea.hidden=!on;if(on){progress.value=20;progressLabel.textContent=label}else progress.value=0}
 async function authenticated(){

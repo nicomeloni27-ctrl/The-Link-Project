@@ -17,3 +17,19 @@ jobs:
           node-version: '22'
       - run: node --test tests/auth.test.cjs tests/mcp.test.mjs
       - run: node --check api/mcp.js
+  oauth-discovery:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Supabase OAuth discovery is enabled
+        run: |
+          node --input-type=module <<'NODE'
+          const url='https://kkjlfvkbtcjkgourkowa.supabase.co/.well-known/oauth-authorization-server/auth/v1';
+          const response=await fetch(url,{signal:AbortSignal.timeout(15000)});
+          console.log('OAuth discovery HTTP status:',response.status);
+          const payload=await response.json().catch(()=>null);
+          console.log('OAuth metadata keys:', payload && Object.keys(payload).join(', '));
+          if(!response.ok || !payload?.authorization_endpoint || !payload?.token_endpoint) {
+            throw Error('Supabase OAuth discovery not ready or incomplete');
+          }
+          console.log('Supabase OAuth authorization server ready');
+          NODE

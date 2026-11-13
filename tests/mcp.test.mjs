@@ -7,6 +7,7 @@ const userA='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const userB='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 function harness(){
  const hubs=new Map([[userA,[{id:'math',name:'Math',units:[],description:'',icon:'◇'}]],[userB,[{id:'history',name:'History',units:[],description:'',icon:'◇'}]]]);
+ const sets=[];
  const docs=[{id:'11111111-1111-1111-1111-111111111111',user_id:userB,class_id:'history',storage_path:userB+'/file.txt',name:'Private.txt',mime_type:'text/plain'}];
  const original=globalThis.fetch;
  globalThis.fetch=async (url,opts={})=>{
@@ -18,6 +19,7 @@ function harness(){
   if(!uid)return respond({message:'Unauthorized'},401);
   if(path==='/rest/v1/study_hubs'&&opts.method==='POST'){const row=JSON.parse(opts.body);if(row.user_id!==uid)return respond({},403);hubs.set(uid,row.classes);return respond(null,201)}
   if(path==='/rest/v1/study_hubs')return respond([{classes:hubs.get(uid)}]);
+  if(path==='/rest/v1/study_sets'&&opts.method==='POST'){const row=JSON.parse(opts.body);if(row.user_id!==uid)return respond({},403);const saved={...row,id:'33333333-3333-3333-3333-333333333333'};sets.push(saved);return respond([saved],201)}
   if(path==='/rest/v1/study_documents'&&opts.method==='POST'){const row=JSON.parse(opts.body);if(row.user_id!==uid)return respond({},403);const saved={...row,id:'22222222-2222-2222-2222-222222222222'};docs.push(saved);return respond([saved],201)}
   if(path==='/rest/v1/study_documents')return respond(docs.filter(d=>d.user_id===uid&&(!search.has('id')||search.get('id')==='eq.'+d.id)&&(!search.has('class_id')||search.get('class_id')==='eq.'+d.class_id)&&(!search.has('unit_title')||search.get('unit_title')==='eq.'+d.unit_title)));
   if(path.startsWith('/storage/v1/object/study-documents/'))return respond({},201);
@@ -32,7 +34,7 @@ function harness(){
 test('MCP metadata and unauthorized calls',async()=>{
  const h=harness();
  try{const init=await h.call('initialize');assert.equal(init.data.result.serverInfo.name,'The Link Project');
- const list=await h.call('tools/list');assert.equal(list.data.result.tools.length,6);
+ const list=await h.call('tools/list');assert.equal(list.data.result.tools.length,7);
  const noAuth=await h.call('tools/call',null,{name:'list_classes',arguments:{}});assert.equal(noAuth.status,401)}
  finally{h.restore()}
 });
@@ -65,5 +67,23 @@ test('student can file a text resource in an existing unit and another student c
   const b=await run('student-b','list_documents',{class_id:'history'});
   assert.equal(a.length,1);assert.equal(a[0].name,'Review.md');
   assert.equal(b.length,1);assert.equal(b[0].name,'Private.txt');
+ }finally{h.restore()}
+});
+
+test('ChatGPT saves a structured study set only within the signed-in student class and unit',async()=>{
+ const h=harness();
+ try{
+  const run=async(token,name,args)=> (await h.call('tools/call',token,{name,arguments:args})).data.result;
+  const content={overview:'Basics',outline:[{topic:'Money',summary:'Definitions',details:['Definition'],practice_example:'Calculate',source:'worksheet'}],graphs:[],questions:[]};
+  const missing=await run('student-a','save_study_set',{class_id:'history',unit_title:'Unit 1',title:'Review',content});
+  assert.equal(missing.isError,true);
+  assert.match(missing.content[0].text,/Unit not found/);
+  const createdUnit=await run('student-a','create_unit',{class_id:'math',title:'Unit 3'});
+  assert.equal(createdUnit.isError,undefined);
+  const result=await run('student-a','save_study_set',{class_id:'math',unit_title:'Unit 3',title:'Unit 3 Part 1',content});
+  assert.equal(result.isError,undefined);
+  assert.equal(JSON.parse(result.content[0].text).created.title,'Unit 3 Part 1');
+  const other=await run('student-b','save_study_set',{class_id:'math',unit_title:'Unit 3',title:'Unauthorized',content});
+  assert.equal(other.isError,true);
  }finally{h.restore()}
 });

@@ -11,8 +11,8 @@ const TOOLS=[
  tool('list_classes','List the classes and units of the signed-in Link student.',schema({}),true),
  tool('create_class','Create a class for the signed-in Link student.',schema({name:str('Class name',70)},['name'])),
  tool('create_unit','Add a unit to one of the signed-in student\'s classes.',schema({class_id:str('Class ID',120),title:str('Unit title',90)},['class_id','title'])),
- tool('list_documents','List signed-in student documents in a class; optionally filter by class ID.',schema({class_id:str('Optional class ID',120)}),true),
- tool('save_text_document','Save a UTF-8 text study resource in the signed-in student\'s private document bucket. Use for generated review sheets. For PDFs, upload on The Link website.',schema({class_id:str('Class ID',120),name:str('Document filename ending in .txt or .md',120),content:{type:'string',description:'UTF-8 text, maximum 100000 characters',maxLength:100000}},['class_id','name','content'])),
+ tool('list_documents','List signed-in student documents in a class; optionally filter by class ID.',schema({class_id:str('Optional class ID',120),unit_title:str('Optional unit title',90)}),true),
+ tool('save_text_document','Save a UTF-8 text study resource in the signed-in student\'s private document bucket. Use for generated review sheets. For PDFs, upload on The Link website.',schema({class_id:str('Class ID',120),unit_title:str('Optional existing unit title',90),name:str('Document filename ending in .txt or .md',120),content:{type:'string',description:'UTF-8 text, maximum 100000 characters',maxLength:100000}},['class_id','name','content'])),
  tool('get_document','Get a signed-in student\'s own document, text content for .txt/.md and temporary signed download URL otherwise.',schema({document_id:str('Document UUID',36)},['document_id']),true)
 ];
 function response(res,status,data,headers={}){res.statusCode=status;for(const [k,v] of Object.entries(headers))res.setHeader(k,v);return res.end(typeof data==='string'?data:JSON.stringify(data))}
@@ -59,13 +59,16 @@ async function execute(name,args,token,userId){
  if(name==='list_documents'){
   if(args.class_id!==undefined&& !safeId(args.class_id))throw Error('Invalid class ID');
   if(args.class_id){const classes=await loadClasses(token,userId);if(!classes.some(c=>c.id===args.class_id))throw Error('Class not found in your account')}
-  const where='user_id=eq.'+encodeURIComponent(userId)+(args.class_id?'&class_id=eq.'+encodeURIComponent(args.class_id):'');
-  return await query('/rest/v1/study_documents?'+where+'&select=id,class_id,name,mime_type,size_bytes,created_at&order=created_at.desc&limit=100',token);
+  if(args.unit_title!==undefined){validName(args.unit_title,90);if(!args.class_id)throw Error('Specify class_id when filtering by unit')}
+  const where='user_id=eq.'+encodeURIComponent(userId)+(args.class_id?'&class_id=eq.'+encodeURIComponent(args.class_id):'')+(args.unit_title?'&unit_title=eq.'+encodeURIComponent(args.unit_title):'');
+  return await query('/rest/v1/study_documents?'+where+'&select=id,class_id,unit_title,name,mime_type,size_bytes,created_at&order=created_at.desc&limit=100',token);
  }
  if(name==='save_text_document'){
   if(!safeId(args.class_id))throw Error('Invalid class ID');
   const classes=await loadClasses(token,userId);
-  if(!classes.some(c=>c.id===args.class_id))throw Error('Class not found in your account');
+  const course=classes.find(c=>c.id===args.class_id);if(!course)throw Error('Class not found in your account');
+  const unitTitle=args.unit_title===undefined?null:validName(args.unit_title,90);
+  if(unitTitle&&!(course.units||[]).includes(unitTitle))throw Error('Unit not found in your class');
   const filename=validName(args.name,120),content=args.content;
   if(filename.includes('/')||filename.includes(String.fromCharCode(92))||!['.txt','.md'].some(x=>filename.toLowerCase().endsWith(x))||typeof content!=='string'||content.length>100000)throw Error('Only .txt and .md text files up to 100000 characters are supported');
   const ext=filename.toLowerCase().endsWith('.md')?'md':'txt',mime=ext==='md'?'text/markdown':'text/plain';
@@ -73,23 +76,23 @@ async function execute(name,args,token,userId){
   const path=userId+'/'+crypto.randomUUID()+'.'+ext;
   await query('/storage/v1/object/study-documents/'+path,token,'POST',bytes,{'Content-Type':mime,'x-upsert':'false'});
   try{
-   const row=await query('/rest/v1/study_documents',token,'POST',{user_id:userId,class_id:args.class_id,name:filename,storage_path:path,mime_type:mime,size_bytes:bytes.length},{Prefer:'return=representation'});
-   return {created:row?.[0]&&{id:row[0].id,name:row[0].name,class_id:row[0].class_id}};
+   const row=await query('/rest/v1/study_documents',token,'POST',{user_id:userId,class_id:args.class_id,unit_title:unitTitle,name:filename,storage_path:path,mime_type:mime,size_bytes:bytes.length},{Prefer:'return=representation'});
+   return {created:row?.[0]&&{id:row[0].id,name:row[0].name,class_id:row[0].class_id,unit_title:unitTitle}};
   }catch(e){await query('/storage/v1/object/study-documents/'+path,token,'DELETE').catch(()=>{});throw e}
  }
  if(name==='get_document'){
   if(!uuid(args.document_id))throw Error('Invalid document ID');
-  const rows=await query('/rest/v1/study_documents?id=eq.'+encodeURIComponent(args.document_id)+'&user_id=eq.'+encodeURIComponent(userId)+'&select=id,class_id,name,storage_path,mime_type,size_bytes',token);
+  const rows=await query('/rest/v1/study_documents?id=eq.'+encodeURIComponent(args.document_id)+'&user_id=eq.'+encodeURIComponent(userId)+'&select=id,class_id,unit_title,name,storage_path,mime_type,size_bytes',token);
   const doc=rows?.[0];if(!doc||!doc.storage_path.startsWith(userId+'/'))throw Error('Document not found in your account');
   const url='/storage/v1/object/sign/study-documents/'+doc.storage_path;
   if(['text/plain','text/markdown'].includes(doc.mime_type)&&doc.size_bytes<=350000){
     const r=await fetch(SUPA+'/storage/v1/object/authenticated/study-documents/'+doc.storage_path,{headers:{apikey:KEY,Authorization:'Bearer '+token}});
     if(!r.ok)throw Error('Cannot read document');
-    return {id:doc.id,name:doc.name,content:await r.text()};
+    return {id:doc.id,name:doc.name,class_id:doc.class_id,unit_title:doc.unit_title,content:await r.text()};
   }
   const signed=await query(url,token,'POST',{expiresIn:60});
   if(!signed?.signedURL)throw Error('Cannot create download link');
-  return {id:doc.id,name:doc.name,temporary_download_url:SUPA+'/storage/v1'+signed.signedURL,expires_in_seconds:60};
+  return {id:doc.id,name:doc.name,class_id:doc.class_id,unit_title:doc.unit_title,temporary_download_url:SUPA+'/storage/v1'+signed.signedURL,expires_in_seconds:60};
  }
  throw Error('Unknown tool');
 }

@@ -22,6 +22,7 @@ function extractOutput(payload){
 }
 export const config={maxDuration:120};
 export default async function handler(req,res){
+ if(req.method==='GET')return send(res,200,{configured:Boolean(process.env.OPENAI_API_KEY)});
  if(req.method!=='POST')return send(res,405,{error:'POST required'});
  const header=req.headers.authorization||'',token=header.startsWith('Bearer ')?header.slice(7):'';
  if(!token)return send(res,401,{error:'Sign in to your Link account first'});

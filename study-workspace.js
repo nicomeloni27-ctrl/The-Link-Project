@@ -10,18 +10,26 @@ const unitSelect=S("select");unitSelect.setAttribute("aria-label","Choose study 
 const autoLabel=S("label","","study-auto"),auto=S("input");auto.type="checkbox";autoLabel.append(auto,document.createTextNode(" Generate automatically after uploads (sends selected files to the AI service)"));
 const note=S("p","Use your own PDF, image or text sources. Upload questions from your materials to include source-grounded multiple choice. AI-generated questions are adaptations, not official AP exam items.","note");
 const sourceTitle=S("h3","Source documents");const sourceList=S("div");
-const actions=S("div","","study-actions"),generateBtn=S("button","Create review sheet + test"),refreshBtn=S("button","Refresh study sets");refreshBtn.className="link";
-actions.append(generateBtn,refreshBtn);
+const actions=S("div","","study-actions"),generateBtn=S("button","Create review sheet + test"),refreshBtn=S("button","Refresh study sets"),chatBtn=S("button","Prepare ChatGPT request");refreshBtn.className="link";chatBtn.className="link";
+actions.append(generateBtn,chatBtn,refreshBtn);
+const chatPrompt=S("textarea","","study-chat-prompt");chatPrompt.readOnly=true;chatPrompt.rows=8;chatPrompt.hidden=true;chatPrompt.setAttribute("aria-label","ChatGPT study generation request");
 const progressArea=S("div","","study-progress");progressArea.hidden=true;const progressLabel=S("p","","note");progressLabel.setAttribute("role","status");const progress=S("progress");progress.max=100;progress.value=0;progressArea.append(progressLabel,progress);
 const status=S("p","","note");status.setAttribute("role","status");
 const aiAvailability=S("p","Checking whether automatic AI generation is available…","note");
 const setList=S("div");const display=S("div");
-studyPanel.append(heading,unitSelect,autoLabel,note,aiAvailability,sourceTitle,sourceList,actions,progressArea,status,setList,display);
+studyPanel.append(heading,unitSelect,autoLabel,note,aiAvailability,sourceTitle,sourceList,actions,chatPrompt,progressArea,status,setList,display);
 function key(){return "link-ai-auto-"+(window.linkDocumentsUser?.id||"guest")}
 auto.onchange=()=>{if(!studyState.aiReady){auto.checked=false;return}localStorage.setItem(key(),auto.checked?"true":"false")};
 unitSelect.onchange=()=>{studyState.unit=unitSelect.value;window.linkPreferredUploadUnit=studyState.unit;if(window.linkUploadUnitSelect)window.linkUploadUnitSelect.value=studyState.unit;loadWorkspace()};
 refreshBtn.onclick=()=>loadWorkspace();
 generateBtn.onclick=()=>runGeneration();
+chatBtn.onclick=()=>{
+ const course=data.find(c=>c.id===active),selected=checkboxDocs(),names=studyState.docs.filter(d=>selected.includes(d.id)).map(d=>d.name);
+ if(!course||!studyState.unit){setStatus("Choose a class and unit first.");return}
+ const prompt=`Use my connected The Link Project tools to build and save a source-grounded review sheet and practice test for ${course.name}, ${studyState.unit}. First call list_classes and confirm the class/unit. Use only these authorized source files: ${names.length?names.join(", "):"(I will attach the source documents directly in ChatGPT)"}. If you cannot actually read the source documents through The Link, ask me to attach them instead of inventing material. Create a structured outline, detailed examples, conceptual graphs only where supported, and MCQs only adapted from questions actually provided. Give an option-specific hint for every answer without revealing the correct option. Save through the save_study_set tool with a descriptive title and confirm where it went. Do not reproduce copyrighted questions verbatim.`;
+ chatPrompt.value=prompt;chatPrompt.hidden=false;chatPrompt.focus();chatPrompt.select();
+ navigator.clipboard?.writeText(prompt).then(()=>setStatus("ChatGPT request copied. Paste it into a chat with The Link Project connected, and attach documents if asked.")).catch(()=>setStatus("Copy the request from the text box, then paste it into ChatGPT."));
+};
 function setStatus(s){status.textContent=s}
 async function checkAI(){
  try{const r=await fetch("/api/generate-study",{method:"GET"});const result=await r.json();studyState.aiReady=r.ok&&result.configured===true}
@@ -43,7 +51,7 @@ function checkboxDocs(){
 }
 async function loadWorkspace(){
  const epoch=++studyState.epoch,classId=active,unit=studyState.unit;
- studyState.classId=classId;studyState.docs=[];studyState.sets=[];studyState.answers=[];studyState.current=null;sourceList.replaceChildren();setList.replaceChildren();display.replaceChildren();
+ studyState.classId=classId;studyState.docs=[];studyState.sets=[];studyState.answers=[];studyState.current=null;chatPrompt.hidden=true;sourceList.replaceChildren();setList.replaceChildren();display.replaceChildren();
  const priorStats=studyPanel.querySelector(".study-stats");if(priorStats)priorStats.remove();
  if(!classId)return;
  const course=data.find(c=>c.id===classId);

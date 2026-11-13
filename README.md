@@ -53,3 +53,12 @@ The tests use a simulated backend; they do not replace a real Google sign-in and
 ## ChatGPT integration (not yet generally enabled)
 
 See [CHATGPT_SETUP.md](./CHATGPT_SETUP.md) for the current implementation, setup steps, security acceptance checklist, and remaining manual Supabase OAuth / ChatGPT registration requirements. The MCP endpoint is on a draft pull request until two real student-account OAuth tests succeed. Mock tests alone are not sufficient for production approval.
+
+## Study sets and practice tests (beta branch)
+The `feature/study-set-generator` work introduces private student-owned `study_sets`, `study_answers` and `study_generation_requests` tables; their additive migration is applied to Supabase. Students can select sources within a unit to create a review sheet and practice test, expand explanations, view diagrams, request option-specific hints, and track missed questions by topic.
+
+**Automatic generation is not active until the administrator configures a server-side `OPENAI_API_KEY` in Vercel.** This is separate from ChatGPT's OAuth connection and may incur API charges. The browser sends selected document contents to the server, which passes them to the AI provider **only after a generate action or explicit auto-generation opt-in**. See [STUDY_SETS_SETUP.md](STUDY_SETS_SETUP.md) for privacy and configuration.
+
+Once the feature is deployed and the ChatGPT custom MCP app refreshes its tool list, ChatGPT can also use `save_study_set` to file a structured outline/practice test directly into the signed-in student's existing unit. This path uses only material ChatGPT already has access to and does not invoke the separate paid website AI generator.
+
+Because the original AP Macro Unit 3, Part 1 PDFs are not in this repository or Supabase source library, **the system has not yet generated a source-grounded AP Macro Part 1 test**. Upload only materials you have the right to use.

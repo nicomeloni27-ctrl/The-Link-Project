@@ -67,7 +67,7 @@ async function execute(name,args,token,userId){
   const classes=await loadClasses(token,userId);
   if(!classes.some(c=>c.id===args.class_id))throw Error('Class not found in your account');
   const filename=validName(args.name,120),content=args.content;
-  if(!/^[^/\\\\]+\\.(txt|md)$/i.test(filename)||typeof content!=='string'||content.length>100000)throw Error('Only .txt and .md text files up to 100000 characters are supported');
+  if(filename.includes('/')||filename.includes(String.fromCharCode(92))||!['.txt','.md'].some(x=>filename.toLowerCase().endsWith(x))||typeof content!=='string'||content.length>100000)throw Error('Only .txt and .md text files up to 100000 characters are supported');
   const ext=filename.toLowerCase().endsWith('.md')?'md':'txt',mime=ext==='md'?'text/markdown':'text/plain';
   const bytes=new TextEncoder().encode(content);if(bytes.length>350000)throw Error('Document is too large');
   const path=userId+'/'+crypto.randomUUID()+'.'+ext;
@@ -108,7 +108,7 @@ export default async function handler(req,res){
  if(body.method==='ping')return rpc(res,body.id,{});
  if(body.method==='tools/list')return rpc(res,body.id,{tools:TOOLS});
  if(body.method!=='tools/call')return error(res,body.id,-32601,'Method not found');
- const token=/^Bearer (\\S+)$/i.exec(req.headers.authorization||'')?.[1];
+ const authHeader=req.headers.authorization||'';const token=authHeader.startsWith('Bearer ')?authHeader.slice(7).trim():null;
  if(!token)return response(res,401,{error:'unauthorized'},{'Content-Type':'application/json','WWW-Authenticate':'Bearer resource_metadata="'+ORIGIN+'/.well-known/oauth-protected-resource"'});
  const name=body.params?.name;
  if(!TOOLS.some(t=>t.name===name))return error(res,body.id,-32602,'Unknown tool');

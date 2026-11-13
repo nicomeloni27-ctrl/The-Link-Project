@@ -43,7 +43,7 @@ export default async function handler(req,res){
   for(const id of source_document_ids){
    const docs=await (await supa('/rest/v1/study_documents?id=eq.'+id+'&user_id=eq.'+user.id+'&class_id=eq.'+encodeURIComponent(class_id)+'&select=id,name,unit_title,storage_path,mime_type,size_bytes',token)).json();
    const doc=docs?.[0];
-   if(!doc||(doc.unit_title!==null&&doc.unit_title!==unit_title)||!doc.storage_path.startsWith(user.id+'/'))return send(res,403,{error:'One or more sources are not available in this class/unit'});
+   if(!doc||!doc.storage_path.startsWith(user.id+'/'))return send(res,403,{error:'One or more selected sources are not available in your class'});
    if(doc.size_bytes>8*1024*1024)return send(res,413,{error:'Limit each source file to 8 MB'});
    total+=doc.size_bytes;
    if(total>12*1024*1024)return send(res,413,{error:'Combined source size limit is 12 MB'});

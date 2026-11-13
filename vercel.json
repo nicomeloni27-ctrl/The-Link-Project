@@ -1,1 +1,14 @@
-{"cleanUrls":true,"trailingSlash":false}
+{
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    {
+      "source": "/.well-known/oauth-protected-resource",
+      "destination": "/api/oauth-resource"
+    },
+    {
+      "source": "/oauth/consent",
+      "destination": "/oauth/consent.html"
+    }
+  ]
+}

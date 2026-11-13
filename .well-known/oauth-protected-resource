@@ -1,0 +1,7 @@
+{
+  "resource": "https://the-link-project-ten.vercel.app/api/mcp",
+  "authorization_servers": [
+    "https://kkjlfvkbtcjkgourkowa.supabase.co/auth/v1"
+  ],
+  "resource_documentation": "https://the-link-project-ten.vercel.app/"
+}

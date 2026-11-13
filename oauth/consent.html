@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Authorize The Link</title><link rel="stylesheet" href="/styles.css"></head>
+<body><main style="max-width:680px;margin:7vh auto;position:relative;padding:24px"><article class="panel">
+<h1>Connect The Link</h1><p id="status" role="status">Checking your account…</p>
+<div id="details" hidden><p><strong>Signed in as:</strong> <span id="account"></span></p><p><strong>Requesting app:</strong> <span id="client"></span></p><p><strong>Redirect destination:</strong> <span id="redirect"></span></p><p><strong>Requested scopes:</strong> <span id="scopes"></span></p><p>By approving, this app can read, create, and modify your Link classes and documents within your own account. Only approve a connection that you recognize.</p></div>
+<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:18px"><button id="login" hidden>Sign in with Google</button><button id="approve" hidden>Allow access</button><button id="deny" hidden>Decline</button></div>
+<p class="note">Your class materials remain private to your Link account. You can withdraw authorization in your account settings.</p>
+</article></main>
+<script type="module">
+const endpoint='https://kkjlfvkbtcjkgourkowa.supabase.co',key='sb_publishable_oj45xpJE4XtmURjAAAguHg_-yDjOLNi';
+const {createClient}=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+const client=createClient(endpoint,key,{auth:{flowType:'pkce',detectSessionInUrl:true,persistSession:true}});
+const params=new URLSearchParams(location.search),id=params.get('authorization_id');
+const $=s=>document.getElementById(s);let user;
+async function init(){
+ if(!id||id.length>200){$('status').textContent='Missing or invalid authorization request.';return}
+ const {data,error}=await client.auth.getUser();user=data?.user;
+ if(error||!user){
+  $('status').textContent='Sign in to your Link account to review this request.';
+  $('login').hidden=false;return;
+ }
+ $('account').textContent=user.email||'Your account';
+ const detail=await client.auth.oauth.getAuthorizationDetails(id);
+ if(detail.error){$('status').textContent=detail.error.message;return}
+ const d=detail.data;
+ $('client').textContent=d.client?.name||'Unknown application';
+ $('redirect').textContent=d.redirect_uri||'Not provided';
+ $('scopes').textContent=d.scope||'Standard access';
+ $('details').hidden=false;$('status').textContent='Review this request before granting access.';
+ $('approve').hidden=false;$('deny').hidden=false;
+}
+$('login').onclick=async()=>{const redirectTo=location.origin+'/oauth/consent?authorization_id='+encodeURIComponent(id);const r=await client.auth.signInWithOAuth({provider:'google',options:{redirectTo}});if(r.error)$('status').textContent=r.error.message};
+async function decide(allow){
+ $('approve').disabled=$('deny').disabled=true;
+ const result=await (allow?client.auth.oauth.approveAuthorization(id):client.auth.oauth.denyAuthorization(id));
+ if(result.error||!result.data?.redirect_url){$('status').textContent=result.error?.message||'Authorization failed';$('approve').disabled=$('deny').disabled=false;return}
+ location.assign(result.data.redirect_url);
+}
+$('approve').onclick=()=>decide(true);$('deny').onclick=()=>decide(false);
+init().catch(()=>$('status').textContent='Could not load authorization request.');
+</script></body></html>

@@ -6,7 +6,7 @@ const RESOURCE=ORIGIN+'/api/mcp';
 const AUTH=SUPA+'/auth/v1';
 const schema=(properties,required=[])=>({type:'object',properties,required,additionalProperties:false});
 const str=(description,maxLength=90)=>({type:'string',description,maxLength});
-const tool=(name,description,inputSchema,readonly=false)=>({name,description,inputSchema,annotations:{readOnlyHint:readonly,destructiveHint:false,openWorldHint:false},_meta:{'securitySchemes':[{type:'oauth2',scopes:[]}]}});
+const tool=(name,description,inputSchema,readonly=false)=>({name,description,inputSchema,annotations:{readOnlyHint:readonly,destructiveHint:false,openWorldHint:false},securitySchemes:[{type:'oauth2',scopes:[]}],_meta:{'securitySchemes':[{type:'oauth2',scopes:[]}]}});
 const TOOLS=[
  tool('list_classes','List the classes and units of the signed-in Link student.',schema({}),true),
  tool('create_class','Create a class for the signed-in Link student.',schema({name:str('Class name',70)},['name'])),

@@ -85,7 +85,7 @@ async function execute(name,args,token,userId){
   if(!safeId(args.class_id))throw Error('Invalid class ID');
   const title=validName(args.title,140),unit=validName(args.unit_title,90);
   const classes=await loadClasses(token,userId),course=classes.find(c=>c.id===args.class_id);
-  if(!course||(course.units||[]).includes(unit))throw Error('Unit not found in your Link account');
+  if(!course||!(course.units||[]).includes(unit))throw Error('Unit not found in your Link account');
   const payload=args.content;
   if(!payload||typeof payload!=='object'||Array.isArray(payload)||typeof payload.overview!=='string'||!Array.isArray(payload.outline)||!Array.isArray(payload.graphs)||!Array.isArray(payload.questions))throw Error('Structured outline, graph and question arrays required');
   if(JSON.stringify(payload).length>220000||payload.outline.length>40||payload.graphs.length>8||payload.questions.length>30)throw Error('Study set exceeds size or item limits');

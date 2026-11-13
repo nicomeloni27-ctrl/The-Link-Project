@@ -35,3 +35,6 @@
 .study-stat-track{height:10px;border-radius:9px;background:#254c76;overflow:hidden}
 .study-stat-bar{height:100%;background:#edaa7c;border-radius:9px}
 @media(max-width:600px){.study-choice{align-items:stretch;flex-direction:column}.study-graphs{grid-template-columns:1fr}.study-stat-label{flex-direction:column}}
+
+.study-chat-prompt{display:block;width:100%;padding:14px;border:1px solid #6da0d2;border-radius:12px;background:#082044;color:#eaf5ff;line-height:1.55;font:13px ui-monospace,monospace;resize:vertical;margin:12px 0}
+.study-chat-prompt[hidden]{display:none}
